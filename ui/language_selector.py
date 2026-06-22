@@ -40,13 +40,13 @@ class LanguageSelector(QDialog):
         self.setWindowTitle("ServerCreator")
         self.setWindowIcon(app_icon())
         self.setModal(True)
-        self.setFixedSize(440, 360)
+        self.setFixedSize(620, 400)
         self._build()
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 28, 32, 28)
-        layout.setSpacing(16)
+        layout.setContentsMargins(48, 32, 48, 32)
+        layout.setSpacing(18)
 
         logo = make_logo_label(64)
         layout.addWidget(logo, alignment=Qt.AlignmentFlag.AlignHCenter)

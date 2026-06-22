@@ -43,6 +43,8 @@ class ServerRuntime(QObject):
         self._online = 0
         self._max_players = 0
         self._psutil_proc: Optional[psutil.Process] = None
+        self._restart_after_stop = False
+        self._restart_delay_ms = 3000
         # Rolling console buffer so the text survives navigating away and back.
         self._buffer: str = ""
         self._buffer_limit = 200_000
@@ -116,14 +118,30 @@ class ServerRuntime(QObject):
         Gracefully stop the server by sending the ``stop`` command, then force
         terminate if it does not exit within ``force_after_ms``.
         """
-        if not self.is_running() or self._process is None:
+        proc = self._process
+        if not self.is_running() or proc is None:
             return
         self.send_command("stop")
-        QTimer.singleShot(force_after_ms, self._force_kill)
 
-    def _force_kill(self) -> None:
-        if self.is_running() and self._process is not None:
-            self._process.kill()
+        # Capture this exact process so a later restart's new process is never
+        # killed by a stale timer.
+        def _kill() -> None:
+            if proc.state() != QProcess.ProcessState.NotRunning:
+                proc.kill()
+
+        QTimer.singleShot(force_after_ms, _kill)
+
+    def restart(self) -> None:
+        """
+        Restart the server: stop it, then start again a few seconds after it has
+        fully shut down. The delay lets the operating system release file locks
+        (such as ``logs/latest.log``) before the new instance starts.
+        """
+        if self.is_running():
+            self._restart_after_stop = True
+            self.stop()
+        else:
+            self.start()
 
     # --------------------------------------------------------------- commands
     def send_command(self, command: str) -> None:
@@ -148,8 +166,18 @@ class ServerRuntime(QObject):
         self._started_at = 0.0
         self._online = 0
         self._psutil_proc = None
+        # Release the finished process so its file handles are freed and a fresh
+        # QProcess is used on the next start.
+        finished = self._process
+        self._process = None
+        if finished is not None:
+            finished.deleteLater()
         self.players_changed.emit(0, 0)
         self.state_changed.emit(False)
+        if self._restart_after_stop:
+            self._restart_after_stop = False
+            self.output.emit("\n[ServerCreator] Restarting in 3 seconds…\n")
+            QTimer.singleShot(self._restart_delay_ms, self.start)
 
     def _read_output(self) -> None:
         if self._process is None:

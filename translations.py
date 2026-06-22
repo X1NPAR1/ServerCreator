@@ -278,6 +278,8 @@ _STRINGS: Dict[str, Dict[str, str]] = {
     "server_status_starting": {"en": "Starting…", "tr": "Başlatılıyor…"},
     "btn_start_server": {"en": "Start", "tr": "Başlat"},
     "btn_stop_server": {"en": "Stop", "tr": "Durdur"},
+    "btn_restart_server": {"en": "Restart", "tr": "Yeniden Başlat"},
+    "console_server_restarting": {"en": "— Restarting server —", "tr": "— Sunucu yeniden başlatılıyor —"},
     "btn_open_folder": {"en": "Open Folder", "tr": "Klasörü Aç"},
     "btn_delete_server": {"en": "Delete Server", "tr": "Sunucuyu Sil"},
     "btn_back_to_list": {"en": "‹ Back", "tr": "‹ Geri"},

@@ -87,14 +87,19 @@ class UpdateDownloader(QThread):
 
 def launch_installer_and_exit(installer_path: str) -> None:
     """
-    Start the downloaded installer and terminate the current application.
+    Start the downloaded installer silently and terminate the application.
 
-    The installer is launched detached so it survives the parent exiting, which
-    is required for it to overwrite the running executable.
+    The installer runs in unattended mode (``/VERYSILENT``) and, via the
+    installer's own post-install step, relaunches ServerCreator once the update
+    finishes. The application releases its single-instance mutex by exiting, so
+    the installer can replace the files without an in-use error.
     """
     try:
         if sys.platform.startswith("win"):
-            os.startfile(installer_path)  # type: ignore[attr-defined]
+            subprocess.Popen(
+                [installer_path, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/NOCANCEL"],
+                close_fds=True,
+            )
         else:
             subprocess.Popen([installer_path])
     finally:

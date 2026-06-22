@@ -107,13 +107,15 @@ class ServerDetail(QWidget):
         self._start_btn = QPushButton(self.t("btn_start_server"))
         self._start_btn.setObjectName("Primary")
         self._start_btn.clicked.connect(self._start)
+        self._restart_btn = QPushButton(self.t("btn_restart_server"))
+        self._restart_btn.clicked.connect(self._restart)
         self._stop_btn = QPushButton(self.t("btn_stop_server"))
         self._stop_btn.clicked.connect(self._stop)
         open_btn = QPushButton(self.t("btn_open_folder"))
         open_btn.clicked.connect(self._open_folder)
         delete_btn = QPushButton(self.t("btn_delete_server"))
         delete_btn.clicked.connect(self._delete)
-        for btn in (self._start_btn, self._stop_btn, open_btn, delete_btn):
+        for btn in (self._start_btn, self._restart_btn, self._stop_btn, open_btn, delete_btn):
             row.addWidget(btn)
         return row
 
@@ -290,6 +292,7 @@ class ServerDetail(QWidget):
 
     def _refresh_state(self, running: bool) -> None:
         self._start_btn.setEnabled(not running)
+        self._restart_btn.setEnabled(running)
         self._stop_btn.setEnabled(running)
         self._cmd.setEnabled(running)
         self._badge.setText(self.t("server_status_running") if running else self.t("server_status_stopped"))
@@ -318,6 +321,16 @@ class ServerDetail(QWidget):
         if not self.runtime.is_running():
             self._console.appendPlainText(self.t("console_server_started"))
             self.runtime.start()
+
+    def start_server(self) -> None:
+        """Public entry point used to auto-start the server (e.g. after install)."""
+        self._tabs.setCurrentIndex(0)  # show the console
+        self._start()
+
+    def _restart(self) -> None:
+        self._tabs.setCurrentIndex(0)
+        self._console.appendPlainText(self.t("console_server_restarting"))
+        self.runtime.restart()
 
     def _stop(self) -> None:
         self.runtime.stop()

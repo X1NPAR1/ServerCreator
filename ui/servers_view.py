@@ -120,8 +120,13 @@ class ServersView(QStackedWidget):
         return card
 
     # ---------------------------------------------------------------- detail
-    def open_detail(self, record: ServerRecord) -> None:
-        """Open the management surface for ``record``."""
+    def open_detail(self, record: ServerRecord, auto_start: bool = False) -> None:
+        """
+        Open the management surface for ``record``.
+
+        When ``auto_start`` is set (used right after installation) the server is
+        started automatically; the user can then stop it or keep it running.
+        """
         if self._detail is not None:
             self._detail.stop_timers()
             self.removeWidget(self._detail)
@@ -134,6 +139,8 @@ class ServersView(QStackedWidget):
         self._detail.deleted.connect(self._on_deleted)
         self.addWidget(self._detail)
         self.setCurrentWidget(self._detail)
+        if auto_start:
+            self._detail.start_server()
 
     def _close_detail(self) -> None:
         self.refresh()

@@ -10,7 +10,7 @@ installer, the auto-updater and the user interface always agree.
 # Semantic version of the application. The leading "v" is added where a tag
 # style string is required (for example when comparing against GitHub release
 # tags such as "v1.75.2").
-APP_VERSION = "1.76.1"
+APP_VERSION = "1.76.2"
 
 # Display name of the application.
 APP_NAME = "ServerCreator"

@@ -178,7 +178,10 @@ class AppShell(QMainWindow):
     def _on_server_created(self, record: ServerRecord) -> None:
         self.registry.add(record)
         self._nav_servers.setEnabled(True)
-        self.servers.refresh()
+        # Take the user straight to the new server's console and start it
+        # automatically; they can stop it or leave it running from there.
+        self._navigate(_PAGE_SERVERS)
+        self.servers.open_detail(record, auto_start=True)
 
     # ------------------------------------------------------------------ theme
     def _on_theme_change(self) -> None:
@@ -246,10 +249,12 @@ class AppShell(QMainWindow):
         dialog.exec()
 
     def _update_ready(self, dialog: QProgressDialog, installer_path: str) -> None:
+        # The update installs silently in the background and relaunches the app
+        # automatically when finished, so no further confirmation is required.
         dialog.close()
-        QMessageBox.information(self, self.t("update_title"), self.t("update_ready"))
         self.runtimes.stop_all()
         self._force_quit = True
+        self._tray.hide()
         launch_installer_and_exit(installer_path)
 
     # ----------------------------------------------------------------- quit

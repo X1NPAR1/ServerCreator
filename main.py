@@ -68,9 +68,35 @@ def _set_windows_app_id() -> None:
         pass
 
 
+# Keep a module-level reference so the mutex lives for the whole process.
+_INSTANCE_MUTEX = None
+
+
+def _create_single_instance_mutex() -> None:
+    """
+    Create the named mutex the installer waits on during a silent update.
+
+    The setup's ``AppMutex`` matches this name; holding it lets the installer
+    detect the running application and wait for it to exit before replacing
+    files, which prevents file-in-use errors while updating.
+    """
+    global _INSTANCE_MUTEX
+    if not sys.platform.startswith("win"):
+        return
+    try:
+        import ctypes
+
+        _INSTANCE_MUTEX = ctypes.windll.kernel32.CreateMutexW(
+            None, False, "ServerCreatorSingleInstanceMutex"
+        )
+    except Exception:  # noqa: BLE001 — best effort
+        _INSTANCE_MUTEX = None
+
+
 def main() -> int:
     """Construct and run the application; return the process exit code."""
     _set_windows_app_id()
+    _create_single_instance_mutex()
     _install_exception_hook()
 
     app = QApplication(sys.argv)
