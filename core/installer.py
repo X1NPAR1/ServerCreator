@@ -3,8 +3,19 @@ Installation orchestration.
 
 :class:`InstallerWorker` is a :class:`QThread` that performs the full server
 installation off the UI thread, reporting progress and log lines through Qt
-signals. It depends only on :mod:`PyQt6.QtCore` (no widgets), keeping it free of
-presentation concerns.
+signals. It depends only on :mod:`PyQt6.QtCore` (no widgets).
+
+Key behaviours:
+
+* The download step reports real byte progress; long, open-ended steps
+  (installing Java, compiling with BuildTools, the server's first run) switch
+  the progress bar to a busy/indeterminate state and stream their console
+  output live so the user always sees activity.
+* The required Java runtime is detected and, if missing or too old, an Eclipse
+  Temurin JDK is downloaded and used automatically.
+* Build tooling (BuildTools for Spigot/CraftBukkit, Forge/NeoForge installers)
+  runs in a throwaway subdirectory and all intermediate artifacts are removed,
+  leaving only the final server jar and the files the server itself generates.
 """
 
 from __future__ import annotations
@@ -12,11 +23,12 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import time
 from typing import Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from core import downloader, server_configurator
+from core import downloader, java_manager, server_configurator
 from core.session import ServerSession
 from core.version_manager import ResolvedDownload, VersionManager
 
@@ -28,16 +40,21 @@ WARNING = "WARNING"
 ERROR = "ERROR"
 SUCCESS = "SUCCESS"
 
+# Build artifacts left behind by BuildTools that must not pollute the server.
+_BUILDTOOLS_JUNK = (
+    "Bukkit", "CraftBukkit", "Spigot", "BuildData", "work",
+    "apache-maven-3.6.0", "apache-maven-3.9.6", "BuildTools.jar",
+    "BuildTools.log.txt", ".git",
+)
+
 
 class InstallerWorker(QThread):
     """Runs the installation pipeline and emits progress to the UI."""
 
-    # level, message
-    log = pyqtSignal(str, str)
-    # downloaded bytes, total bytes (0 when unknown)
-    progress = pyqtSignal(int, int)
-    # success flag, final message
-    finished_install = pyqtSignal(bool, str)
+    log = pyqtSignal(str, str)                 # level, message
+    progress = pyqtSignal(int, int)            # downloaded, total (0 => unknown)
+    busy = pyqtSignal(bool)                    # True => indeterminate phase
+    finished_install = pyqtSignal(bool, str)   # success, server jar name (or error)
 
     def __init__(self, session: ServerSession, language: str, parent=None) -> None:
         super().__init__(parent)
@@ -45,9 +62,11 @@ class InstallerWorker(QThread):
         self._language = language
         self._version_manager = VersionManager()
         self._cancelled = False
+        self._java = "java"          # resolved java command, set during the run
+        self.java_path = "java"      # exposed to the caller after success
 
     def cancel(self) -> None:
-        """Request cancellation; checked between steps."""
+        """Request cancellation; checked between steps and output lines."""
         self._cancelled = True
 
     # ------------------------------------------------------------------ helpers
@@ -58,16 +77,41 @@ class InstallerWorker(QThread):
         if self._cancelled:
             raise RuntimeError("cancelled")
 
-    def _run_java(self, args: list[str], cwd: str, timeout: int = 600) -> subprocess.CompletedProcess:
-        """Run a ``java`` command in ``cwd`` and return the completed process."""
-        return subprocess.run(
-            ["java"] + args,
+    def _run_java_streaming(self, args: list[str], cwd: str, timeout: int = 1800,
+                            java: Optional[str] = None) -> int:
+        """
+        Run a ``java`` command, streaming each output line to the log.
+
+        Returns the process exit code. Honours cancellation and a wall-clock
+        timeout (checked as output arrives).
+        """
+        executable = java or self._java
+        proc = subprocess.Popen(
+            [executable] + args,
             cwd=cwd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=timeout,
+            bufsize=1,
+            encoding="utf-8",
+            errors="replace",
             creationflags=_NO_WINDOW,
         )
+        start = time.time()
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                self._emit(INFO, line)
+            if self._cancelled:
+                proc.kill()
+                break
+            if time.time() - start > timeout:
+                self._emit(WARNING, f"Step timed out after {timeout}s; terminating.")
+                proc.kill()
+                break
+        proc.wait()
+        return proc.returncode if proc.returncode is not None else -1
 
     # ----------------------------------------------------------------- pipeline
     def run(self) -> None:  # noqa: D401 (QThread entry point)
@@ -75,6 +119,9 @@ class InstallerWorker(QThread):
         path = self._session.install_path
         try:
             self._create_directory(path)
+            self._check_cancel()
+
+            self._ensure_java()
             self._check_cancel()
 
             resolved = self._resolve(path)
@@ -102,12 +149,20 @@ class InstallerWorker(QThread):
             self._check_cancel()
 
             self._write_scripts(path, server_jar)
+            self.busy.emit(False)
 
+            self.java_path = self._java
             self._emit(SUCCESS, "log_done")
             self.finished_install.emit(True, server_jar)
-        except RuntimeError:
-            self.finished_install.emit(False, "cancelled")
+        except RuntimeError as exc:
+            self.busy.emit(False)
+            if str(exc) == "cancelled":
+                self.finished_install.emit(False, "cancelled")
+            else:
+                self._emit(ERROR, str(exc))
+                self.finished_install.emit(False, str(exc))
         except Exception as exc:  # noqa: BLE001 — surfaced to the user
+            self.busy.emit(False)
             self._emit(ERROR, str(exc))
             self.finished_install.emit(False, str(exc))
 
@@ -115,6 +170,28 @@ class InstallerWorker(QThread):
     def _create_directory(self, path: str) -> None:
         self._emit(INFO, f"::log_creating_dir::{path}")
         os.makedirs(path, exist_ok=True)
+
+    def _ensure_java(self) -> None:
+        """Detect Java; download Eclipse Temurin automatically if necessary."""
+        required = self._session.required_java
+        resolved = java_manager.resolve_java(required)
+        if resolved is not None:
+            self._java = resolved
+            where = "system" if resolved == "java" else "bundled"
+            self._emit(SUCCESS, f"::log_java_ok::{required}")
+            self._emit(INFO, f"Using {where} Java for the server.")
+            return
+
+        self._emit(WARNING, f"::log_java_missing::{required}")
+        self.busy.emit(True)
+        self._emit(INFO, f"::log_java_installing::{required}")
+        self.busy.emit(False)
+        self._java = java_manager.install_java(
+            required,
+            progress_callback=lambda d, t: self.progress.emit(d, t),
+            log_callback=lambda msg: self._emit(INFO, msg),
+        )
+        self._emit(SUCCESS, f"::log_java_ready::{required}")
 
     def _resolve(self, path: str) -> ResolvedDownload:
         resolved = self._version_manager.resolve_download(
@@ -126,13 +203,14 @@ class InstallerWorker(QThread):
 
     def _download(self, resolved: ResolvedDownload, path: str) -> str:
         self._emit(INFO, f"::log_downloading::{resolved.filename}")
+        self.busy.emit(False)
         dest = os.path.join(path, resolved.filename)
         downloader.download_file(
             resolved.url,
             dest,
             progress_callback=lambda d, t: self.progress.emit(d, t),
         )
-        self._emit(SUCCESS, f"::log_downloading::{resolved.filename}")
+        self._emit(SUCCESS, f"::log_downloaded::{resolved.filename}")
         return resolved.filename
 
     def _verify(self, resolved: ResolvedDownload, file_path: str) -> None:
@@ -149,47 +227,73 @@ class InstallerWorker(QThread):
         self._emit(SUCCESS, "log_verifying")
 
     def _prepare_server(self, resolved: ResolvedDownload, jar_name: str, path: str) -> str:
-        """
-        Turn an installer artifact into a runnable server jar where required.
-
-        For Vanilla/Paper/Purpur/Fabric the downloaded jar is already the
-        server. For Forge/NeoForge the installer is executed; for
-        Spigot/CraftBukkit BuildTools is run to compile the server.
-        """
+        """Turn an installer artifact into a runnable ``server.jar`` if needed."""
         if not resolved.is_installer:
             return jar_name
 
-        self._emit(INFO, resolved.note or "Running installer")
+        self.busy.emit(True)
         if jar_name == "BuildTools.jar":
-            target = "spigot" if self._session.platform == "spigot" else "craftbukkit"
-            result = self._run_java(
-                ["-jar", "BuildTools.jar", "--rev", self._session.mc_version, "--compile", target],
-                cwd=path,
-                timeout=2400,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(f"BuildTools failed:\n{result.stderr[-2000:]}")
-            produced = self._find_first(path, prefix=target, suffix=".jar")
-            if not produced:
-                raise RuntimeError("BuildTools did not produce a server jar.")
-            shutil.move(os.path.join(path, produced), os.path.join(path, "server.jar"))
-            return "server.jar"
+            result = self._build_with_buildtools(path)
+            self.busy.emit(False)
+            return result
 
-        # Forge / NeoForge installer.
-        result = self._run_java(["-jar", jar_name, "--installServer"], cwd=path, timeout=1800)
-        if result.returncode != 0:
-            raise RuntimeError(f"Installer failed:\n{result.stderr[-2000:]}")
+        # Forge / NeoForge installer: run it, then remove the installer + logs.
+        self._emit(INFO, "::log_running_installer::")
+        code = self._run_java_streaming([f"-jar", jar_name, "--installServer"], cwd=path, timeout=1800)
+        if code != 0:
+            raise RuntimeError("The platform installer reported an error.")
         run_jar = self._find_first(path, prefix=self._session.platform, suffix=".jar")
+        for junk in (jar_name, jar_name + ".log", "installer.log"):
+            self._safe_remove(os.path.join(path, junk))
+        self.busy.emit(False)
         return run_jar or jar_name
+
+    def _build_with_buildtools(self, path: str) -> str:
+        """
+        Compile Spigot/CraftBukkit with BuildTools inside a temporary build
+        directory, place only the final jar as ``server.jar`` and delete every
+        intermediate artifact.
+        """
+        target = "spigot" if self._session.platform == "spigot" else "craftbukkit"
+        build_dir = os.path.join(path, ".build")
+        os.makedirs(build_dir, exist_ok=True)
+        # BuildTools.jar was downloaded into ``path``; move it into the build dir.
+        shutil.move(os.path.join(path, "BuildTools.jar"), os.path.join(build_dir, "BuildTools.jar"))
+
+        self._emit(INFO, f"::log_building::{target}")
+        code = self._run_java_streaming(
+            ["-jar", "BuildTools.jar", "--rev", self._session.mc_version,
+             "--compile", target, "--output-dir", path],
+            cwd=build_dir,
+            timeout=3600,
+        )
+        if code != 0:
+            raise RuntimeError("BuildTools failed to compile the server.")
+
+        produced = self._find_first(path, prefix=target, suffix=".jar")
+        if not produced:
+            raise RuntimeError("BuildTools did not produce a server jar.")
+        final = os.path.join(path, "server.jar")
+        self._safe_remove(final)
+        shutil.move(os.path.join(path, produced), final)
+
+        # Remove every build artifact, leaving a clean server directory.
+        self._emit(INFO, "::log_cleanup::")
+        shutil.rmtree(build_dir, ignore_errors=True)
+        for junk in _BUILDTOOLS_JUNK:
+            self._safe_remove(os.path.join(path, junk))
+        return "server.jar"
 
     def _first_run(self, server_jar: str, path: str) -> None:
         self._emit(INFO, "log_running_first")
-        # The first run exits immediately because the EULA has not been accepted.
-        self._run_java(
+        self.busy.emit(True)
+        # The first run exits quickly because the EULA has not been accepted.
+        self._run_java_streaming(
             [f"-Xmx{self._session.xmx_mb}M", "-jar", server_jar, "nogui"],
             cwd=path,
             timeout=300,
         )
+        self.busy.emit(False)
 
     def _accept_eula(self, path: str) -> None:
         self._emit(INFO, "log_eula")
@@ -200,11 +304,13 @@ class InstallerWorker(QThread):
         if os.path.exists(os.path.join(path, "server.properties")):
             return
         self._emit(INFO, "log_configuring")
-        self._run_java(
+        self.busy.emit(True)
+        self._run_java_streaming(
             [f"-Xmx{self._session.xmx_mb}M", "-jar", server_jar, "nogui"],
             cwd=path,
             timeout=420,
         )
+        self.busy.emit(False)
 
     def _apply_properties(self, path: str) -> None:
         self._emit(INFO, "log_editing")
@@ -216,8 +322,9 @@ class InstallerWorker(QThread):
         if not self._session.generate_start_script:
             return
         self._emit(INFO, "log_scripts")
-        server_configurator.write_start_scripts(path, self._session, server_jar)
+        server_configurator.write_start_scripts(path, self._session, server_jar, self._java)
 
+    # ----------------------------------------------------------------- utils
     @staticmethod
     def _find_first(path: str, prefix: str, suffix: str) -> Optional[str]:
         for name in sorted(os.listdir(path)):
@@ -225,3 +332,13 @@ class InstallerWorker(QThread):
             if lower.startswith(prefix.lower()) and lower.endswith(suffix.lower()):
                 return name
         return None
+
+    @staticmethod
+    def _safe_remove(target: str) -> None:
+        try:
+            if os.path.isdir(target):
+                shutil.rmtree(target, ignore_errors=True)
+            elif os.path.exists(target):
+                os.remove(target)
+        except OSError:
+            pass

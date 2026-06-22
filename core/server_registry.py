@@ -34,6 +34,7 @@ class ServerRecord:
     xms_mb: int = 1024
     xmx_mb: int = 2048
     use_aikar_flags: bool = True
+    java_path: str = "java"
     created_at: float = field(default_factory=time.time)
 
     @property

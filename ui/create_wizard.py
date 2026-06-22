@@ -175,7 +175,7 @@ class CreateWizard(QWidget):
             label.style().polish(label)
 
     # --------------------------------------------------------------- finish
-    def _on_installed(self, jar_name: str) -> None:
+    def _on_installed(self, jar_name: str, java_path: str = "java") -> None:
         record = ServerRecord(
             name=self.session.server_name,
             path=self.session.install_path,
@@ -186,6 +186,7 @@ class CreateWizard(QWidget):
             xms_mb=self.session.xms_mb,
             xmx_mb=self.session.xmx_mb,
             use_aikar_flags=self.session.use_aikar_flags,
+            java_path=java_path or "java",
         )
         self.server_created.emit(record)
         self._go_to(6)

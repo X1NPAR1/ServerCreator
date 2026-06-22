@@ -4,7 +4,7 @@
   <img src="assets/logo.ico" width="72" alt="ServerCreator logo">
 </p>
 
-<p align="center"><b>v1.76.0</b> — by <b>X1NPAR1</b></p>
+<p align="center"><b>v1.76.1</b> — by <b>X1NPAR1</b></p>
 
 > A fully automated, multilingual desktop application that lets anyone create a
 > Minecraft Java Edition server without any technical knowledge.

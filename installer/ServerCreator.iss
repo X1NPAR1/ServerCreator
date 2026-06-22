@@ -10,7 +10,7 @@
 ; ===========================================================================
 
 #define MyAppName "ServerCreator"
-#define MyAppVersion "1.76.0"
+#define MyAppVersion "1.76.1"
 #define MyAppPublisher "X1NPAR1"
 #define MyAppExeName "ServerCreator.exe"
 #define MyAppURL "https://github.com/X1NPAR1/ServerCreator"

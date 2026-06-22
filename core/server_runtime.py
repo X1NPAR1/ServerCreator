@@ -106,7 +106,8 @@ class ServerRuntime(QObject):
         self._process.readyReadStandardOutput.connect(self._read_output)
         self._process.started.connect(self._on_started)
         self._process.finished.connect(self._on_finished)
-        self._process.start("java", args)
+        java = getattr(self._record, "java_path", "java") or "java"
+        self._process.start(java, args)
         return True
 
     # ------------------------------------------------------------------- stop
