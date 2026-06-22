@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Build artifacts
+build/
+dist/
+*.spec.bak
+installer/Output/
+
+# Runtime / user data (must never be committed)
+config.json
+version_cache.json
+
+# IDE / OS
+.vscode/
+.idea/
+*.log
+Thumbs.db
+.DS_Store
