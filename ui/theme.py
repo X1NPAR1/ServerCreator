@@ -237,4 +237,74 @@ def build_stylesheet(theme_name: str) -> str:
     /* Message boxes */
     QMessageBox {{ background-color: {c['panel']}; }}
     QMessageBox QLabel {{ color: {c['text']}; }}
+
+    /* Tabs */
+    QTabWidget::pane {{ border: 1px solid {c['border']}; border-radius: 6px; top: -1px; }}
+    QTabBar::tab {{
+        background: {c['panel_alt']};
+        color: {c['text_secondary']};
+        border: 1px solid {c['border']};
+        border-bottom: none;
+        padding: 8px 18px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        margin-right: 2px;
+    }}
+    QTabBar::tab:selected {{ background: {c['panel']}; color: {c['text']}; border-bottom: 2px solid {ACCENT}; }}
+    QTabBar::tab:hover {{ color: {c['text']}; }}
+
+    /* Tables */
+    QTableWidget, QTableView {{
+        background-color: {c['panel']};
+        alternate-background-color: {c['panel_alt']};
+        color: {c['text']};
+        gridline-color: {c['border']};
+        border: 1px solid {c['border']};
+        selection-background-color: {c['selection_bg']};
+        selection-color: {c['selection_text']};
+    }}
+    QHeaderView::section {{
+        background-color: {c['panel_alt']};
+        color: {c['text']};
+        border: none;
+        border-right: 1px solid {c['border']};
+        border-bottom: 1px solid {c['border']};
+        padding: 6px 8px;
+    }}
+    QTableCornerButton::section {{ background-color: {c['panel_alt']}; border: none; }}
+
+    /* Lists */
+    QListWidget {{
+        background-color: {c['panel']};
+        color: {c['text']};
+        border: 1px solid {c['border']};
+        border-radius: 6px;
+        outline: none;
+    }}
+    QListWidget::item {{ padding: 8px; border-radius: 4px; }}
+    QListWidget::item:selected {{ background-color: {c['selection_bg']}; color: {c['selection_text']}; }}
+    QListWidget::item:hover {{ background-color: {c['panel_alt']}; }}
+
+    /* Status badges */
+    QLabel#BadgeRunning {{
+        background-color: rgba(63,185,80,0.18); color: {ACCENT};
+        border: 1px solid {ACCENT}; border-radius: 10px; padding: 2px 12px; font-weight: 600;
+    }}
+    QLabel#BadgeStopped {{
+        background-color: rgba(139,148,158,0.18); color: {c['text_secondary']};
+        border: 1px solid {c['border']}; border-radius: 10px; padding: 2px 12px; font-weight: 600;
+    }}
+
+    /* Navigation rail */
+    QFrame#NavRail {{ background-color: {c['panel_alt']}; border-right: 1px solid {c['border']}; }}
+    QPushButton#NavItem {{
+        background: transparent; border: none; text-align: left;
+        padding: 12px 16px; border-radius: 6px; color: {c['text']}; font-size: 15px;
+    }}
+    QPushButton#NavItem:hover {{ background-color: {c['panel']}; }}
+    QPushButton#NavItem:checked {{ background-color: {c['panel']}; border-left: 3px solid {ACCENT}; color: {ACCENT}; font-weight: 600; }}
+
+    /* Server cards in the list */
+    QFrame#ServerCard {{ background-color: {c['panel']}; border: 1px solid {c['border']}; border-radius: 8px; }}
+    QFrame#ServerCard:hover {{ border-color: {ACCENT}; }}
     """

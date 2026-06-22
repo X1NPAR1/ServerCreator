@@ -254,6 +254,76 @@ _STRINGS: Dict[str, Dict[str, str]] = {
     },
     "update_failed": {"en": "The update could not be downloaded.", "tr": "Güncelleme indirilemedi."},
 
+    # ------------------------------------------------------------- navigation / shell
+    "nav_create": {"en": "Create Server", "tr": "Sunucu Oluştur"},
+    "nav_servers": {"en": "My Servers", "tr": "Sunucularım"},
+    "btn_go_servers": {"en": "Go to My Servers", "tr": "Sunucularıma Git"},
+
+    # ------------------------------------------------------------- my servers
+    "servers_title": {"en": "My Servers", "tr": "Sunucularım"},
+    "servers_empty": {
+        "en": "You have no servers yet. Let's create your first one.",
+        "tr": "Henüz bir sunucunuz yok. İlk sunucunuzu oluşturalım.",
+    },
+    "server_status_running": {"en": "Running", "tr": "Çalışıyor"},
+    "server_status_stopped": {"en": "Stopped", "tr": "Kapalı"},
+    "server_status_starting": {"en": "Starting…", "tr": "Başlatılıyor…"},
+    "btn_start_server": {"en": "Start", "tr": "Başlat"},
+    "btn_stop_server": {"en": "Stop", "tr": "Durdur"},
+    "btn_open_folder": {"en": "Open Folder", "tr": "Klasörü Aç"},
+    "btn_delete_server": {"en": "Delete Server", "tr": "Sunucuyu Sil"},
+    "btn_back_to_list": {"en": "‹ Back", "tr": "‹ Geri"},
+    "btn_manage": {"en": "Manage", "tr": "Yönet"},
+
+    # detail tabs
+    "tab_console": {"en": "Console", "tr": "Konsol"},
+    "tab_properties": {"en": "Properties", "tr": "Özellikler"},
+    "tab_worlds": {"en": "Worlds", "tr": "Dünyalar"},
+    "tab_info": {"en": "Info", "tr": "Bilgi"},
+
+    "console_input_placeholder": {"en": "Type a command and press Enter…", "tr": "Bir komut yazıp Enter'a basın…"},
+    "console_server_off": {"en": "— Server is stopped —", "tr": "— Sunucu kapalı —"},
+    "console_server_started": {"en": "— Server starting —", "tr": "— Sunucu başlatılıyor —"},
+
+    "info_status": {"en": "Status", "tr": "Durum"},
+    "info_players": {"en": "Online players", "tr": "Aktif oyuncular"},
+    "info_uptime": {"en": "Uptime", "tr": "Çalışma süresi"},
+    "info_cpu": {"en": "CPU usage", "tr": "İşlemci kullanımı"},
+    "info_memory": {"en": "Memory usage", "tr": "Bellek kullanımı"},
+    "info_platform": {"en": "Platform", "tr": "Altyapı"},
+    "info_version": {"en": "Version", "tr": "Sürüm"},
+    "info_port": {"en": "Port", "tr": "Port"},
+    "info_path": {"en": "Location", "tr": "Konum"},
+    "stat_not_available": {"en": "N/A", "tr": "—"},
+
+    "props_save": {"en": "Save changes", "tr": "Değişiklikleri kaydet"},
+    "props_saved": {"en": "Properties saved. Restart the server to apply.", "tr": "Özellikler kaydedildi. Uygulamak için sunucuyu yeniden başlatın."},
+    "props_key": {"en": "Key", "tr": "Anahtar"},
+    "props_value": {"en": "Value", "tr": "Değer"},
+
+    "worlds_current": {"en": "Active world: {name}", "tr": "Aktif dünya: {name}"},
+    "worlds_new": {"en": "New World", "tr": "Yeni Dünya"},
+    "worlds_new_prompt": {"en": "Name for the new world:", "tr": "Yeni dünyanın adı:"},
+    "worlds_new_done": {"en": "New world '{name}' set. It will be generated on the next start.", "tr": "Yeni dünya '{name}' ayarlandı. Bir sonraki başlatmada oluşturulacak."},
+    "worlds_backup": {"en": "Back Up", "tr": "Yedekle"},
+    "worlds_backup_done": {"en": "Backup created: {path}", "tr": "Yedek oluşturuldu: {path}"},
+    "worlds_backup_running": {"en": "Stop the server before backing up the world.", "tr": "Dünyayı yedeklemeden önce sunucuyu durdurun."},
+
+    "delete_confirm_title": {"en": "Delete server", "tr": "Sunucuyu sil"},
+    "delete_confirm_text": {
+        "en": "This will permanently delete '{name}' and all of its files. Continue?",
+        "tr": "Bu işlem '{name}' sunucusunu ve tüm dosyalarını kalıcı olarak siler. Devam edilsin mi?",
+    },
+
+    "tray_show": {"en": "Open ServerCreator", "tr": "ServerCreator'ı Aç"},
+    "tray_quit": {"en": "Quit", "tr": "Çıkış"},
+    "tray_running_bg": {"en": "ServerCreator is still running in the background.", "tr": "ServerCreator arka planda çalışmaya devam ediyor."},
+    "close_running_title": {"en": "Servers are running", "tr": "Sunucular çalışıyor"},
+    "close_running_text": {
+        "en": "The following servers are still running and will be stopped if you quit:\n\n{servers}\n\nQuit and stop them?",
+        "tr": "Şu sunucular hâlâ çalışıyor ve çıkarsanız durdurulacaktır:\n\n{servers}\n\nÇıkıp durdurulsun mu?",
+    },
+
     # ------------------------------------------------------------- generic
     "error_title": {"en": "Error", "tr": "Hata"},
     "warning_title": {"en": "Warning", "tr": "Uyarı"},

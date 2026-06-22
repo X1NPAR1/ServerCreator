@@ -16,7 +16,7 @@ import requests
 
 DEFAULT_TIMEOUT = 20  # seconds
 DEFAULT_RETRIES = 3
-USER_AGENT = "ServerCreator/1.75.2 (+https://github.com/X1NPAR1)"
+USER_AGENT = "ServerCreator/1.76.0 (+https://github.com/X1NPAR1)"
 
 _SESSION = requests.Session()
 _SESSION.headers.update({"User-Agent": USER_AGENT})

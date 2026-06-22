@@ -4,7 +4,7 @@
   <img src="assets/logo.ico" width="72" alt="ServerCreator logo">
 </p>
 
-<p align="center"><b>v1.75.2</b> — by <b>X1NPAR1</b></p>
+<p align="center"><b>v1.76.0</b> — by <b>X1NPAR1</b></p>
 
 > A fully automated, multilingual desktop application that lets anyone create a
 > Minecraft Java Edition server without any technical knowledge.
@@ -27,6 +27,11 @@
   for a newer setup and, with your approval, downloads and installs it.
 - **Java awareness**: detects your Java version and warns when the chosen
   Minecraft version needs a newer one.
+- **Server manager ("My Servers")**: start/stop servers, an in-app console with
+  command input (no external command window), live status, player count,
+  uptime, CPU and memory, an editable `server.properties`, plus world creation
+  and backup. Closing the window keeps servers running in the tray; quitting
+  warns you first and stops them cleanly.
 
 ### Running from source
 ```bash
@@ -65,6 +70,11 @@ The setup file is written to `installer/Output/`.
   onayınızla yeni kurulumu indirip yükler.
 - **Java denetimi**: Java sürümünüzü tespit eder ve seçtiğiniz Minecraft sürümü
   daha yeni bir Java gerektirdiğinde sizi uyarır.
+- **Sunucu yöneticisi ("Sunucularım")**: sunucuları başlatıp durdurun, uygulama
+  içi konsoldan komut gönderin (harici cmd penceresi açılmaz), canlı durum,
+  oyuncu sayısı, çalışma süresi, CPU ve bellek görün, `server.properties`
+  düzenleyin, yeni dünya oluşturup yedek alın. Pencereyi kapatınca sunucular
+  tepside çalışmaya devam eder; çıkışta önce uyarılır ve düzgünce durdurulur.
 
 ### Kaynaktan çalıştırma
 ```bash

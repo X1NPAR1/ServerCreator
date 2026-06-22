@@ -104,7 +104,62 @@ def apply_server_properties(install_path: str, session: ServerSession, language:
         return False
 
 
-def jvm_flags(session: ServerSession) -> str:
+def read_properties(install_path: str) -> dict:
+    """
+    Read ``server.properties`` into an ordered ``dict``.
+
+    Comment and blank lines are ignored. Returns an empty dict if the file does
+    not exist or cannot be read.
+    """
+    result: dict = {}
+    path = os.path.join(install_path, "server.properties")
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            for raw in handle.read().splitlines():
+                stripped = raw.strip()
+                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                    continue
+                key, value = stripped.split("=", 1)
+                result[key.strip()] = value
+    except OSError:
+        pass
+    return result
+
+
+def write_properties(install_path: str, overrides: dict) -> bool:
+    """
+    Merge ``overrides`` into ``server.properties``, preserving existing keys,
+    comments and ordering. Missing keys are appended. Returns ``True`` on
+    success.
+    """
+    path = os.path.join(install_path, "server.properties")
+    try:
+        lines: list[str] = []
+        seen: set[str] = set()
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as handle:
+                for raw in handle.read().splitlines():
+                    stripped = raw.strip()
+                    if not stripped or stripped.startswith("#") or "=" not in stripped:
+                        lines.append(raw)
+                        continue
+                    key = stripped.split("=", 1)[0].strip()
+                    if key in overrides:
+                        lines.append(f"{key}={overrides[key]}")
+                        seen.add(key)
+                    else:
+                        lines.append(raw)
+        for key, value in overrides.items():
+            if key not in seen:
+                lines.append(f"{key}={value}")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(lines) + "\n")
+        return True
+    except OSError:
+        return False
+
+
+def jvm_flags(session) -> str:
     """Return the JVM flag string for the session (empty if disabled)."""
     return AIKAR_FLAGS if session.use_aikar_flags else ""
 
