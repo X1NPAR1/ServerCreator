@@ -12,8 +12,12 @@ title ServerCreator - Launcher (X1NPAR1)
 cd /d "%~dp0"
 
 REM --- 1) Locate a real Python interpreter ----------------------------------
+REM Prefer the known local installation, then fall back to PATH lookups.
 set "PYEXE="
-where py >nul 2>nul && (py -3 --version >nul 2>nul && set "PYEXE=py -3")
+if exist "F:\Python311\python.exe" set "PYEXE=F:\Python311\python.exe"
+if not defined PYEXE (
+    where py >nul 2>nul && (py -3 --version >nul 2>nul && set "PYEXE=py -3")
+)
 if not defined PYEXE (
     where python >nul 2>nul && (python --version >nul 2>nul && set "PYEXE=python")
 )
