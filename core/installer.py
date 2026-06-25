@@ -21,6 +21,7 @@ Key behaviours:
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -33,6 +34,9 @@ from core.session import ServerSession
 from core.version_manager import ResolvedDownload, VersionManager
 
 _NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
+# Matches the server's "Done (12.345s)! For help, type ..." readiness line.
+_DONE_RE = re.compile(r"Done \([\d.]+s\)!")
 
 # Log levels used by the UI to colour-code lines.
 INFO = "INFO"
@@ -78,9 +82,16 @@ class InstallerWorker(QThread):
             raise RuntimeError("cancelled")
 
     def _run_java_streaming(self, args: list[str], cwd: str, timeout: int = 1800,
-                            java: Optional[str] = None) -> int:
+                            java: Optional[str] = None, stop_on_ready: bool = False) -> int:
         """
         Run a ``java`` command, streaming each output line to the log.
+
+        When ``stop_on_ready`` is set, the moment the server reports that it has
+        finished starting (``Done (…)!``) a ``stop`` command is written to its
+        standard input so it shuts down cleanly and promptly. This is essential
+        for the file-generation runs: otherwise the server keeps running and
+        holds port 25565, causing an "Address already in use" error when the
+        real server is started afterwards.
 
         Returns the process exit code. Honours cancellation and a wall-clock
         timeout (checked as output arrives).
@@ -89,6 +100,7 @@ class InstallerWorker(QThread):
         proc = subprocess.Popen(
             [executable] + args,
             cwd=cwd,
+            stdin=subprocess.PIPE if stop_on_ready else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -98,20 +110,47 @@ class InstallerWorker(QThread):
             creationflags=_NO_WINDOW,
         )
         start = time.time()
+        sent_stop = False
         assert proc.stdout is not None
         for line in proc.stdout:
             line = line.rstrip()
             if line:
                 self._emit(INFO, line)
+            if stop_on_ready and not sent_stop and _DONE_RE.search(line):
+                self._send_stdin(proc, "stop")
+                sent_stop = True
             if self._cancelled:
-                proc.kill()
+                self._send_stdin(proc, "stop")
+                if not self._wait_for_exit(proc, 8):
+                    proc.kill()
                 break
             if time.time() - start > timeout:
                 self._emit(WARNING, f"Step timed out after {timeout}s; terminating.")
-                proc.kill()
+                self._send_stdin(proc, "stop")
+                if not self._wait_for_exit(proc, 10):
+                    proc.kill()
                 break
         proc.wait()
         return proc.returncode if proc.returncode is not None else -1
+
+    @staticmethod
+    def _send_stdin(proc: subprocess.Popen, command: str) -> None:
+        """Best-effort write of a command line to a process's standard input."""
+        try:
+            if proc.stdin and not proc.stdin.closed:
+                proc.stdin.write(command + "\n")
+                proc.stdin.flush()
+        except (OSError, ValueError):
+            pass
+
+    @staticmethod
+    def _wait_for_exit(proc: subprocess.Popen, seconds: int) -> bool:
+        """Wait up to ``seconds`` for the process to exit; return True if it did."""
+        try:
+            proc.wait(timeout=seconds)
+            return True
+        except subprocess.TimeoutExpired:
+            return False
 
     # ----------------------------------------------------------------- pipeline
     def run(self) -> None:  # noqa: D401 (QThread entry point)
@@ -287,11 +326,13 @@ class InstallerWorker(QThread):
     def _first_run(self, server_jar: str, path: str) -> None:
         self._emit(INFO, "log_running_first")
         self.busy.emit(True)
-        # The first run exits quickly because the EULA has not been accepted.
+        # The first run normally exits on its own because the EULA has not been
+        # accepted; stop_on_ready is a safety net for builds that start anyway.
         self._run_java_streaming(
             [f"-Xmx{self._session.xmx_mb}M", "-jar", server_jar, "nogui"],
             cwd=path,
             timeout=300,
+            stop_on_ready=True,
         )
         self.busy.emit(False)
 
@@ -305,10 +346,14 @@ class InstallerWorker(QThread):
             return
         self._emit(INFO, "log_configuring")
         self.busy.emit(True)
+        # This run fully starts the server to generate server.properties and the
+        # initial world, then stops it the moment it is ready so the port is
+        # released before the real server is started.
         self._run_java_streaming(
             [f"-Xmx{self._session.xmx_mb}M", "-jar", server_jar, "nogui"],
             cwd=path,
             timeout=420,
+            stop_on_ready=True,
         )
         self.busy.emit(False)
 
